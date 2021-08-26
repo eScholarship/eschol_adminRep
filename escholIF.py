@@ -23,6 +23,12 @@ class escholIF:
     queryDoaj = "select attrs->>'$.doaj' from units where id = '{param}'"
     queryStats = "select sum(attrs->>'$.dl'), sum(attrs->>'$.hit')  from unit_stats where month like '{param1}%' and unit_id = '{param}' and attrs->>'$.dl' is not null and attrs->>'$.hit' is not null"
 
+    queryForKeeper = "select id, attrs->>'$.eissn', attrs->>'$.issn', name from units where type = 'journal' and (attrs->>'$.eissn' is not null or attrs->>'$.issn' is not null)"
+    queryLastVolIssue = "select volume, issue from issues where unit_id = '{param}' and published = (select max(published) from issues where unit_id = '{param}' and volume !='0') order by CAST(volume AS SIGNED) DESC, CAST(issue as SIGNED) DESC limit 1"
+    queryFirstVolIssue = "select volume, issue from issues where unit_id = '{param}' and published = (select min(published) from issues where unit_id = '{param}'  and volume !='0') order by CAST(volume AS SIGNED), CAST(issue as SIGNED) limit 1"
+
+    queryJournalItemsWithDoi = "select id, attrs->>'$.doi' from items where attrs->>'$.doi' is not null and id in (select item_id from unit_items where unit_id in (select id from units where type='journal'))"
+
     def __init__(self):
         print("connect to eschol DB here")
 
@@ -34,6 +40,15 @@ class escholIF:
 
         self.cursor = self.cnxn.cursor()
 
+    def getJournalItemsWithDoi(self):
+        print("read JournalItemsWithDoi")
+        self.cursor.execute(self.queryJournalItemsWithDoi)
+        idsDois = {}
+        for row in self.cursor:
+            idsDois[row[0]] = str(row[1].decode('utf-8'))
+
+        return idsDois
+
 
     def getUnits(self):
         print("read all the Elements related groups")
@@ -43,6 +58,43 @@ class escholIF:
             groupSeries[row[0]] = (row[1], row[2])
 
         return groupSeries
+
+    def getUnitsForKeepers(self):
+        print("read all the units with ISSN")
+        self.cursor.execute(self.queryForKeeper)
+        groupSeries = {}
+        for row in self.cursor:
+            groupSeries[row[0]] = (row[1], row[2], row[3])
+
+        return groupSeries
+
+    def getFirstVolIssue(self, unitid):
+        print("read first vol issues")
+        # number of issues for this unitid
+        # number of years between first and last year
+        query = self.queryFirstVolIssue.format(param=unitid)
+        self.cursor.execute(query)
+        vol = None
+        issue = None
+        for row in self.cursor:
+            vol = row[0]
+            issue = row[1]
+
+        return vol, issue
+
+    def getLastVolIssue(self, unitid):
+        print("read last vol issues")
+        # number of issues for this unitid
+        # number of years between first and last year
+        query = self.queryLastVolIssue.format(param=unitid)
+        self.cursor.execute(query)
+        vol = None
+        issue = None
+        for row in self.cursor:
+            vol = row[0]
+            issue = row[1]
+
+        return vol, issue
 
     def dateFirstInEschol(self, unitid):
         print("read first in eschol")
