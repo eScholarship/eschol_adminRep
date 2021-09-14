@@ -1,10 +1,14 @@
 from escholIF import escholIF
 from datetime import date
+import os
+
 print("run this keeper registry report")
 
 x = escholIF()
-all = x.getUnitsForKeepers();
-f = open("keeper_report.txt", "w")
+all = x.getUnitsForKeepers()
+today = date.today()
+filename = "out/eScholarship_keepers_report_" + str(today.strftime("%Y%m%d")) + ".csv"
+f = open(filename, "w")
 f.write("eISSN,ISSN,Title of the resource,Publisher of the resource,Archive starting date,Archive ending date,Status of archiving process (archived),Holdings,Address of the archived resource (URL or other),Updating date\n")
 for id in all:
     line = ''
@@ -39,10 +43,14 @@ for id in all:
         line += 'none,'
     
     line += 'https://escholarship.org/uc/' + str(id) + ','
-    z = date.today()
-    line += str(z.strftime("%m/%d/%Y")) + '\n'
+    
+    line += str(today.strftime("%m/%d/%Y")) + '\n'
     
     f.write(line)
     
-print("done")
+print("done writing")
 f.close()
+print("send to keepers ftp")
+#curl -T localfile ftp://ftp.issn.org/
+os.popen('curl -n -T ' + filename + ' ftp://ftp.issn.org/')
+print("done sending")
