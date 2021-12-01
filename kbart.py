@@ -104,8 +104,8 @@ try:
         f.write("{}\n".format("\t".join(cheaders))) 
         for j in journals:
             outr = [j['title'],
-                    j['issn'],
-                    j['eissn'],
+                    j['issn'] if not isinstance(j['issn'], bytes) else j['issn'].decode('utf-8'),
+                    j['eissn'] if not isinstance(j['eissn'], bytes) else j['eissn'].decode('utf-8'),
                     j['fpub'],
                     j['fvol'],
                     j['fissue'],
