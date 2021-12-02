@@ -4,12 +4,6 @@ from mysql.connector import errorcode
 
 from datetime import date
 
-# Provider Name = name of the platform where data is hosted
-# Region/Consortium  = where the package is sold or to what consortium it is available. If universal list = “Global”
-# Package Name = name of the collection as customers would expect to see it labeled in knowledgebase
-# Date = file creation date ISO 8601
-
-filename = "{}_{}_{}_{}.txt".format("CDL", "Global", "eScholarship", date.today().strftime("%Y-%m-%d"))
 url_template = "https://escholarship.org/uc/{}"
 
 cheaders = ["publication_title", # units.name
@@ -24,7 +18,7 @@ cheaders = ["publication_title", # units.name
 	    "title_url", # "https://escholarship.org/uc/" + units.id
             "first_author",
 	    "title_id", # units.id
-            "embargo_info", # none (will we report anything with embargoes?)
+            "embargo_info",
 	    "coverage_depth", # fulltext
 	    "notes", 
 	    "publisher_name", # eScholarship Publishing
@@ -35,7 +29,7 @@ cheaders = ["publication_title", # units.name
 	    "monograph_edition",
 	    "first_editor",
             "parent_publication_title_id",
-	    "preceding_publication_title_id", # Is it possible any serials have changed title?
+	    "preceding_publication_title_id",
 	    "access_type"] # F (free)
 
 q = \
@@ -100,29 +94,28 @@ try:
             j['fpub'] = j['fpub'].strftime("%Y-%m")
             j['lpub'] = j['lpub'].strftime("%Y-%m")
                 
-    with open(filename, 'w') as f:
-        f.write("{}\n".format("\t".join(cheaders))) 
-        for j in journals:
-            outr = [j['title'],
-                    j['issn'],
-                    j['eissn'],
-                    j['fpub'],
-                    j['fvol'],
-                    j['fissue'],
-                    j['lpub'],
-                    j['lvol'],
-                    j['lissue'],
-                    j['url'],
-                    "",
-                    j['id'],
-                    "",
-                    "fulltext",
-                    "",
-                    "eScholarship Publishing",
-                    "serial",
-                    "", "", "", "", "", "", "",
-                    "F"]
-            f.write("{}\n".format("\t".join(outr)))
+    print("\t".join(cheaders))
+    for j in journals:
+        outr = [j['title'],
+                j['issn'] if not isinstance(j['issn'], bytes) else j['issn'].decode('utf-8'),
+                j['eissn'] if not isinstance(j['eissn'], bytes) else j['eissn'].decode('utf-8'),
+                j['fpub'],
+                j['fvol'],
+                j['fissue'],
+                j['lpub'],
+                j['lvol'],
+                j['lissue'],
+                j['url'],
+                "",
+                j['id'],
+                "",
+                "fulltext",
+                "",
+                "eScholarship Publishing",
+                "serial",
+                "", "", "", "", "", "", "",
+                "F"]
+        print("\t".join(outr))
 
 except mysql.connector.Error as err:
     if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
