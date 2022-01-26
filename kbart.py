@@ -3,34 +3,38 @@ import mysql.connector
 from mysql.connector import errorcode
 
 from datetime import date
+import os
+
+OUTDIR = os.environ.get("OUTDIR")
 
 url_template = "https://escholarship.org/uc/{}"
+fname_template = "CDL_Global_{}.txt"
 
 cheaders = ["publication_title", # units.name
             "print_identifier", # ISSN
             "online_identifier", # e-ISSN units.eissn
-	    "date_first_issue_online", # min issues.published
-	    "num_first_vol_online", # min_issue.volume
-	    "num_first_issue_online", # min_issue.issue
-	    "date_last_issue_online", # max issues.published
-	    "num_last_vol_online", # max_issue.volume
-	    "num_last_issue_online", # max_issue.issue
-	    "title_url", # "https://escholarship.org/uc/" + units.id
+	        "date_first_issue_online", # min issues.published
+	        "num_first_vol_online", # min_issue.volume
+	        "num_first_issue_online", # min_issue.issue
+	        "date_last_issue_online", # max issues.published
+	        "num_last_vol_online", # max_issue.volume
+	        "num_last_issue_online", # max_issue.issue
+	        "title_url", # "https://escholarship.org/uc/" + units.id
             "first_author",
-	    "title_id", # units.id
+	        "title_id", # units.id
             "embargo_info",
-	    "coverage_depth", # fulltext
-	    "notes", 
-	    "publisher_name", # eScholarship Publishing
-	    "publication_type", # serial
+	        "coverage_depth", # fulltext
+	        "notes",
+	        "publisher_name", # eScholarship Publishing
+	        "publication_type", # serial
             "date_monograph_published_print",
             "date_monograph_published_online",
             "monograph_volume",
-	    "monograph_edition",
-	    "first_editor",
+	        "monograph_edition",
+	        "first_editor",
             "parent_publication_title_id",
-	    "preceding_publication_title_id",
-	    "access_type"] # F (free)
+	        "preceding_publication_title_id",
+	        "access_type"] # F (free)
 
 q = \
 """
@@ -56,6 +60,20 @@ SELECT units.name as title, units.id, units.attrs->>'$.issn' as issn, units.attr
 """
 
 freq_q = "SELECT YEAR(published), count(*) as c FROM issues WHERE unit_id = '{unit_id}' GROUP BY YEAR(published) HAVING c > 1"
+
+index_html = """
+<!DOCTYPE html>
+
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>CDL KBART Index</title>
+    </head>
+    <body>
+       <a href="{0}">{0}</a>
+    </body>
+</html>
+"""
 
 try:
     cnx = mysql.connector.connect(user=creds.escholDB.username,
@@ -93,29 +111,34 @@ try:
         else:
             j['fpub'] = j['fpub'].strftime("%Y-%m")
             j['lpub'] = j['lpub'].strftime("%Y-%m")
-                
-    print("\t".join(cheaders))
-    for j in journals:
-        outr = [j['title'],
-                j['issn'] if not isinstance(j['issn'], bytes) else j['issn'].decode('utf-8'),
-                j['eissn'] if not isinstance(j['eissn'], bytes) else j['eissn'].decode('utf-8'),
-                j['fpub'],
-                j['fvol'],
-                j['fissue'],
-                j['lpub'],
-                j['lvol'],
-                j['lissue'],
-                j['url'],
-                "",
-                j['id'],
-                "",
-                "fulltext",
-                "",
-                "eScholarship Publishing",
-                "serial",
-                "", "", "", "", "", "", "",
-                "F"]
-        print("\t".join(outr))
+
+    filename = fname_template.format(date.today().strftime("%Y-%m-%d"))
+    with open(os.path.join(OUTDIR, "index.html"), 'w') as f:
+        f.write(index_html.format(filename))
+
+    with open(os.path.join(OUTDIR, filename), 'w') as f:
+        f.write("{}\n".format("\t".join(cheaders)))
+        for j in journals:
+            outr = [j['title'],
+                    j['issn'] if not isinstance(j['issn'], bytes) else j['issn'].decode('utf-8'),
+                    j['eissn'] if not isinstance(j['eissn'], bytes) else j['eissn'].decode('utf-8'),
+                    j['fpub'],
+                    j['fvol'],
+                    j['fissue'],
+                    j['lpub'],
+                    j['lvol'],
+                    j['lissue'],
+                    j['url'],
+                    "",
+                    j['id'],
+                    "",
+                    "fulltext",
+                    "",
+                    "eScholarship Publishing",
+                    "serial",
+                    "", "", "", "", "", "", "",
+                    "F"]
+            f.write("{}\n".format("\t".join(outr)))
 
 except mysql.connector.Error as err:
     if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
