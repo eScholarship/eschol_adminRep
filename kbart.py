@@ -8,7 +8,7 @@ import os
 OUTDIR = os.environ.get("OUTDIR")
 
 url_template = "https://escholarship.org/uc/{}"
-fname_template = "CDL_Global_{}.txt"
+fname_template = "CDL_Global_eScholarship_{}.txt"
 
 cheaders = ["publication_title", # units.name
             "print_identifier", # ISSN
@@ -63,14 +63,14 @@ freq_q = "SELECT YEAR(published), count(*) as c FROM issues WHERE unit_id = '{un
 
 index_html = """
 <!DOCTYPE html>
-
 <html lang="en">
     <head>
         <meta charset="utf-8">
-        <title>CDL KBART Index</title>
+        <title>KBART file for CDL eScholarship serials</title>
     </head>
     <body>
-       <a href="{0}">{0}</a>
+        <h1>KBART file for CDL eScholarship serials</h1>
+        <a href="{0}">{0}</a>
     </body>
 </html>
 """
