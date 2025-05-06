@@ -29,6 +29,8 @@ class escholIF:
 
     queryJournalItemsWithDoi = "select id, attrs->>'$.doi' from items where attrs->>'$.doi' is not null and id in (select item_id from unit_items where unit_id in (select id from units where type='journal'))"
 
+    queryETDids = "select id from items where source = 'proQuest' and status = 'published' limit 5000"
+
     def __init__(self):
         print("connect to eschol DB here")
 
@@ -179,12 +181,13 @@ class escholIF:
         rights = None
         for row in self.cursor:
             rights = row[0]
+
         return rights
 
     #queryDoaj
     def getDoaj(self, unitid):
         print("read cc rights")
-        query = self.queryDoaj.format(param=unitid)
+        query = self.queryDoaj.format(param=unitid)        
         self.cursor.execute(query)
         doaj = None
         for row in self.cursor:
@@ -202,3 +205,13 @@ class escholIF:
             dl = row[0]
             req = row[1]
         return dl, req
+
+
+    def getETDids(self):
+        print("read ETD ids")
+        self.cursor.execute(self.queryETDids)
+        ids = []
+        for row in self.cursor:
+            ids.append(row[0])
+
+        return ids
