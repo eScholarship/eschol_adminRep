@@ -31,6 +31,7 @@ class escholIF:
 
     queryETDids = "select id from items where source = 'proQuest' and status = 'published' limit 5000"
 
+    queryItemsFromUnit = "select item_id from unit_items where unit_id = '{param}'"
     def __init__(self):
         print("connect to eschol DB here")
 
@@ -51,6 +52,15 @@ class escholIF:
 
         return idsDois
 
+    def getItemsFromUnit(self, unitid):
+        print("read items present in the unit")
+        query = self.queryItemsFromUnit.format(param=unitid)
+        self.cursor.execute(query)
+        ids = []
+        for row in self.cursor:
+            ids.append(row[0])
+
+        return ids
 
     def getUnits(self):
         print("read all the Elements related groups")
