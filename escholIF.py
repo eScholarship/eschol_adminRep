@@ -29,7 +29,7 @@ class escholIF:
 
     queryJournalItemsWithDoi = "select id, attrs->>'$.doi' from items where attrs->>'$.doi' is not null and id in (select item_id from unit_items where unit_id in (select id from units where type='journal'))"
 
-    queryETDids = "select id from items where source = 'proQuest' and status = 'published' limit 5000"
+    queryETDids = "select id from items where source = 'proQuest' and status = 'published'"
 
     queryItemsFromUnit = "select item_id from unit_items where unit_id = '{param}'"
     def __init__(self):
