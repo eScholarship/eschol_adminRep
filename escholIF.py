@@ -31,7 +31,7 @@ class escholIF:
 
     queryETDids = "select id from items where source = 'proQuest' and status = 'published'"
 
-    queryItemsFromUnit = "select item_id from unit_items where unit_id = '{param}'"
+    queryItemsFromUnit = "select item_id from unit_items where unit_id = '{param}' and is_direct = '1'"
     def __init__(self):
         print("connect to eschol DB here")
 
