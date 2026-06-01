@@ -1,9 +1,11 @@
-import creds
+from datetime import date
+import os
+import csv
+
 import mysql.connector
 from mysql.connector import errorcode
 
-from datetime import date
-import os
+import creds
 
 OUTDIR = os.environ.get("OUTDIR")
 
@@ -13,12 +15,12 @@ fname_template = "CDL_Global_eScholarship_{}.txt"
 cheaders = ["publication_title", # units.name
             "print_identifier", # ISSN
             "online_identifier", # e-ISSN units.eissn
-	        "date_first_issue_online", # min issues.published
+	        "date_first_issue_online", # min_issue.published
 	        "num_first_vol_online", # min_issue.volume
 	        "num_first_issue_online", # min_issue.issue
-	        "date_last_issue_online", # max issues.published
-	        "num_last_vol_online", # max_issue.volume
-	        "num_last_issue_online", # max_issue.issue
+	        "date_last_issue_online", # date of publication for the final issue of an archived journal
+	        "num_last_vol_online", # volume number of most recent volume of archived journal
+	        "num_last_issue_online", # issue number of most recent volume of archived journal
 	        "title_url", # "https://escholarship.org/uc/" + units.id
             "first_author",
 	        "title_id", # units.id
@@ -38,7 +40,7 @@ cheaders = ["publication_title", # units.name
 
 q = \
 """
-SELECT units.name as title, units.id, units.attrs->>'$.issn' as issn, units.attrs->>'$.eissn' as eissn, first.published as fp, first.volume as fv, first.issue as fi, first.n as fn, last.published as lp, last.volume as lv, last.issue as li, last.n as ln
+SELECT units.name as title, units.id, units.attrs->>'$.issn' as issn, units.attrs->>'$.eissn' as eissn, units.status as status, first.published as fp, first.volume as fv, first.issue as fi, first.n as fn, last.published as lp, last.volume as lv, last.issue as li, last.n as ln
     FROM units 
     LEFT JOIN 
         (SELECT issues.unit_id, issues.volume, MIN(issues.issue) as issue, issues.published, issues.attrs->>'$.numbering' as n
@@ -56,10 +58,10 @@ SELECT units.name as title, units.id, units.attrs->>'$.issn' as issn, units.attr
          ON issues.unit_id = max.unit_id and issues.published = max.max_pub
          GROUP BY unit_id) as last
     ON units.id = last.unit_id
-    WHERE units.type = 'journal' and units.status = 'active'
+    WHERE units.type = 'journal' and units.status != 'hidden'
 """
 
-freq_q = "SELECT YEAR(published), count(*) as c FROM issues WHERE unit_id = '{unit_id}' GROUP BY YEAR(published) HAVING c > 1"
+freq_q = "SELECT count(*) as total FROM (SELECT YEAR(published), count(*) as c FROM issues WHERE unit_id = '{unit_id}' GROUP BY YEAR(published) HAVING c > 1) as t"
 
 index_html = """
 <!DOCTYPE html>
@@ -81,7 +83,7 @@ try:
                                   host=creds.escholDB.server,
                                   database=creds.escholDB.database,
                                   port=creds.escholDB.port,
-                                  auth_plugin='mysql_native_password')
+                                  auth_plugin="mysql_native_password")
 
     cursor = cnx.cursor(dictionary=True)
 
@@ -89,57 +91,48 @@ try:
 
     journals = []
     for r in cursor:
-        journals.append({'title': r['title'],
-                         'issn': r['issn'] if r['issn'] else "",
-                         'eissn': r['eissn'] if r['eissn'] else "",
-                         'fpub': r['fp'],
-                         'fvol': r['fv'] if r['fn'] != b'issue_only' else "",
-                         'fissue': r['fi'] if r['fn'] != b'volume_only' else "",
-                         'lpub': r['lp'],
-                         'lvol': r['lv'] if r['ln'] != b'issue_only' else "",
-                         'lissue': r['li'] if r['ln'] != b'volume_only' else "",
-                         'url': url_template.format(r['id']),
-                         'id': r['id']})
+        result = {
+            "publication_title": r["title"],
+            "print_identifier": r["issn"] if r["issn"] else "",
+            "online_identifier": r["eissn"] if r["eissn"] else "",
+            "date_first_issue_online": r["fp"],
+            "title_url": url_template.format(r["id"]),
+            "title_id": r["id"],
+            "coverage_depth": "fulltext",
+            "publisher_name": "eScholarship Publishing",
+            "publication_type": "serial",
+            "access_type": "F"
+        }
+
+        if r["fn"] != b"issue_only":
+            result["num_first_vol_online"] = r["fv"]
+        if r["fn"] != b"volume_only":
+            result["num_first_issue_online"] = r["fi"]
+
+        if r["status"] == "archived":
+            result["date_last_issue_online"] = r["lp"],
+            if r["ln"] != b"issue_only":
+                result["num_last_vol_online"] = r["lv"]
+            if r["ln"] != b"volume_only":
+                result["num_last_issue_online"] = r["li"]
 
     for j in journals:
-        cursor.execute(freq_q.format(unit_id=j['id']))
-        i = 0
-        for r in cursor:
-            i += 1
-        if i == 0:
-            j['fpub'] = j['fpub'].strftime("%Y")
-            j['lpub'] = j['lpub'].strftime("%Y")
-        else:
-            j['fpub'] = j['fpub'].strftime("%Y-%m")
-            j['lpub'] = j['lpub'].strftime("%Y-%m")
+        # if there are multiple issues in any year
+        # include the month in the date format
+        cursor.execute(freq_q.format(unit_id=j["id"]))
+        result = cursor.fetchone()
+        date_format = "%Y" if result[0] > 0 else "%Y-%m"
+        j["date_first_issue_online"] = j["date_first_issue_online"].strftime(date_format)
+        j["date_last_issue_online"] = j["date_last_issue_online"].strftime(date_format)
 
     filename = fname_template.format(date.today().strftime("%Y-%m-%d"))
-    with open(os.path.join(OUTDIR, "index.html"), 'w') as f:
+    with open(os.path.join(OUTDIR, "index.html"), "w") as f:
         f.write(index_html.format(filename))
 
-    with open(os.path.join(OUTDIR, filename), 'w') as f:
-        f.write("{}\n".format("\t".join(cheaders)))
-        for j in journals:
-            outr = [j['title'],
-                    j['issn'] if not isinstance(j['issn'], bytes) else j['issn'].decode('utf-8'),
-                    j['eissn'] if not isinstance(j['eissn'], bytes) else j['eissn'].decode('utf-8'),
-                    j['fpub'],
-                    j['fvol'],
-                    j['fissue'],
-                    j['lpub'],
-                    j['lvol'],
-                    j['lissue'],
-                    j['url'],
-                    "",
-                    j['id'],
-                    "",
-                    "fulltext",
-                    "",
-                    "eScholarship Publishing",
-                    "serial",
-                    "", "", "", "", "", "", "",
-                    "F"]
-            f.write("{}\n".format("\t".join(outr)))
+    with open(os.path.join(OUTDIR, filename), "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=cheaders, restval="")
+        writer.writeheader()
+        writer.writerows(journals)
 
 except mysql.connector.Error as err:
     if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
