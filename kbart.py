@@ -93,8 +93,8 @@ try:
     for r in cursor:
         result = {
             "publication_title": r["title"],
-            "print_identifier": r["issn"] if r["issn"] else "",
-            "online_identifier": r["eissn"] if r["eissn"] else "",
+            "print_identifier": r["issn"].decode("utf-8") if r["issn"] else "",
+            "online_identifier": r["eissn"].decode("utf-8") if r["eissn"] else "",
             "date_first_issue_online": r["fp"],
             "title_url": url_template.format(r["id"]),
             "title_id": r["id"],
@@ -110,20 +110,22 @@ try:
             result["num_first_issue_online"] = r["fi"]
 
         if r["status"] == "archived":
-            result["date_last_issue_online"] = r["lp"],
+            result["date_last_issue_online"] = r["lp"]
             if r["ln"] != b"issue_only":
                 result["num_last_vol_online"] = r["lv"]
             if r["ln"] != b"volume_only":
                 result["num_last_issue_online"] = r["li"]
+        journals.append(result)
 
     for j in journals:
         # if there are multiple issues in any year
         # include the month in the date format
-        cursor.execute(freq_q.format(unit_id=j["id"]))
+        cursor.execute(freq_q.format(unit_id=j["title_id"]))
         result = cursor.fetchone()
-        date_format = "%Y" if result[0] > 0 else "%Y-%m"
+        date_format = "%Y-%m" if result["total"] > 0 else "%Y"
         j["date_first_issue_online"] = j["date_first_issue_online"].strftime(date_format)
-        j["date_last_issue_online"] = j["date_last_issue_online"].strftime(date_format)
+        if "date_last_issue_online" in j:
+            j["date_last_issue_online"] = j["date_last_issue_online"].strftime(date_format)
 
     filename = fname_template.format(date.today().strftime("%Y-%m-%d"))
     with open(os.path.join(OUTDIR, "index.html"), "w") as f:
