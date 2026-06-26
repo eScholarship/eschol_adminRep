@@ -132,7 +132,7 @@ try:
         f.write(index_html.format(filename))
 
     with open(os.path.join(OUTDIR, filename), "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=cheaders, restval="")
+        writer = csv.DictWriter(f, fieldnames=cheaders, restval="", delimiter="\t")
         writer.writeheader()
         writer.writerows(journals)
 
